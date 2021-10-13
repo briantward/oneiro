@@ -1,0 +1,62 @@
+= oneiro
+
+Two kubernetes/OpenShift jobs to sleep your applications at night (hopefully not in production) so they can have sweet dreams and save you money.
+
+Tag all your namespaces with this specific label:
+
+`oc label namespace team-c sleep-at-night=yes`
+
+Then you can run this job once or create a CronJob from it:
+
+`idle-job.yaml` : This Job uses `oc idle` to put your application to sleep by looking up the service and adding an annotation. When you hit the external `Route` you will wake it up. Use this if you know nobody will be hitting the service at all during the sleep period you want. Note that if you scale up manually without hitting the external `Route`, then your service endpoint will retain the original `sleep` annotation, and if you scale it down manually again, it could still wake up because that annotation remains.  
+
+
+`scale-down-all-job.yaml` : This Job simply scales down all scalable resources found.  Resources will stay down regardless until you scale them back up manually.
+
+== Test it out:
+
+=== Create the Monitor Job
+
+ oc create -f oneiro-namespace.yaml
+ oc create -f monitor-clusterrole.yaml
+ oc create -f sleep-monitor-sa.yaml
+ oc create -f sleep-monitor-crb.yaml
+
+=== Create some sample apps
+
+ oc new-project team-a
+ oc new-project team-b
+ oc new-project team-c
+
+ oc label namespace team-a sleep-at-night=yes
+ oc label namespace team-b sleep-at-night=yes
+ oc label namespace team-c sleep-at-night=yes
+
+ oc new-app httpd -n team-a
+ oc new-app httpd -n team-b
+ oc new-app httpd -n team-c
+
+ oc expose svc httpd -n team-a
+ oc expose svc httpd -n team-b
+ oc expose svc httpd -n team-c
+
+ oc get pods -A | grep team
+
+=== Run the Job
+
+ oc create -f scale-down-all-job.yaml
+
+or 
+
+ oc create -f idle-job.yaml
+
+Check everything scaled down:
+
+ oc get pods -A | grep team
+
+Scale em back up:
+
+ oc scale deployments --all --replicas=1 -n team-a
+ oc scale deployments --all --replicas=1 -n team-b
+ oc scale deployments --all --replicas=1 -n team-c
+

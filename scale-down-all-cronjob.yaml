@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: scale-down-all
+  namespace: oneiro
+spec:
+  schedule: "0 21 * * *"  
+  concurrencyPolicy: "Replace" 
+  startingDeadlineSeconds: 200 
+  suspend: true            
+  successfulJobsHistoryLimit: 3 
+  failedJobsHistoryLimit: 1     
+  jobTemplate:             
+    spec:
+      template:
+        metadata:
+          labels:          
+            parent: "cronjob-sleep-at-night"
+        spec:
+          containers:
+          - image: registry.redhat.io/openshift4/ose-cli
+            imagePullPolicy: IfNotPresent
+            command: ["sh", "-c", "/sleep/scale-down-all.sh"]
+            name: ose-cli
+            volumeMounts:
+            - mountPath: /sleep
+              name: bash-script
+              readOnly: true
+          serviceAccountName: sleep-monitor
+          restartPolicy: Never
+          volumes:
+          - name: bash-script
+            configMap:
+              name: scale-down-all
+              items:
+                - key: scale-down-all.sh
+                  path: scale-down-all.sh
+                  mode: 0755

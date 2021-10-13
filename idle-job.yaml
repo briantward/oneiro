@@ -1,0 +1,15 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: oc-idle
+  namespace: oneiro
+spec:
+  template:
+    spec:
+      containers:
+      - image: registry.redhat.io/openshift4/ose-cli
+        imagePullPolicy: IfNotPresent
+        command: ["sh", "-c", "for project in $(oc get projects -l sleep-at-night=yes -o jsonpath='{.items[*].metadata.name}'); do oc idle --all -n $project; done; exit 0"]
+        name: ose-cli
+      serviceAccountName: sleep-monitor
+      restartPolicy: Never
